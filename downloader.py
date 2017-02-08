@@ -1,10 +1,11 @@
-import requests
 import subprocess
 import os
 import os.path
 import uuid
 import logging
 import random
+
+import requests
 
 
 DEVNULL = open(os.devnull, 'w')
@@ -35,6 +36,21 @@ def download_certificate_to_directory(addr, output_dir='./certs'):
             download_certificate(addr, f)
         except Exception as e:
             logging.error(e)
+            return None
+
+    return path
+
+
+def write_summary(addr, filename):
+    summary_filename = filename + '.summary'
+    with open(summary_filename, 'w') as f:
+        f.write('addr={}\n'.format(addr))
+        f.write('now=')
+        f.flush()
+        args = ['date', '-u']
+        subprocess.check_call(args, stdin=DEVNULL, stdout=f, stderr=DEVNULL)
+        args = ['openssl', 'x509', '-startdate', '-in', filename]
+        subprocess.check_call(args, stdin=DEVNULL, stdout=f, stderr=DEVNULL)
 
 
 def download_relay_certificates(num, output_dir='./certs'):
@@ -47,12 +63,15 @@ def download_relay_certificates(num, output_dir='./certs'):
             continue
 
         addr = relay['or_addresses'][0]
-        download_certificate_to_directory(addr, output_dir)
+        filepath = download_certificate_to_directory(addr, output_dir)
+        if filepath is None:
+            continue
+        write_summary(addr, filepath)
 
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
-    download_relay_certificates(100)
+    download_relay_certificates(1000)
 
 
 if __name__ == '__main__':
